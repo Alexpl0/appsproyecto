@@ -1,0 +1,12 @@
+# Archivo de plantilla que contiene los IDs de los textos.
+# Usaremos 'es' como base.
+template-arb-file: app_es.arb
+
+# Archivo Dart que se generará con las traducciones.
+output-localization-file: app_localizations.dart
+
+# Opcional: Nombre de la clase que se generará.
+output-class: AppLocalizations
+
+# Especifica la carpeta de entrada para los archivos .arb
+arb-dir: lib/l10n

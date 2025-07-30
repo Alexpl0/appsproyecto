@@ -1,0 +1,50 @@
+name: rastreo_app
+description: "Una aplicación profesional para rastreo de envíos y monitoreo de sensores con Flutter."
+publish_to: 'none' 
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.3 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Internacionalización
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
+
+  # Manejo de estado
+  provider: ^6.1.1
+
+  # Almacenamiento local
+  shared_preferences: ^2.2.2
+
+  # Notificaciones - updated to latest version
+  flutter_local_notifications: ^17.0.0
+  timezone: ^0.9.2
+
+  # Conectividad Bluetooth
+  flutter_bluetooth_serial: ^0.4.0
+  permission_handler: ^11.3.0
+
+  # Animaciones - updated version
+  flutter_animate: ^4.3.0
+
+  # Iconos
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+# Configuración de Flutter
+flutter:
+  generate: true # Habilita la generación de código para l10n
+  uses-material-design: true
+
+  # Declaración de assets (imágenes)
+  assets:
+    - assets/images/
