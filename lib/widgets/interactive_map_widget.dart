@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:rastreo_app/l10n/app_localizations.dart';
-import 'package:rastreo_app/theme/app_theme.dart';
 import 'dart:math' as math;
+import '../theme/app_theme.dart';
+import '../services/directions_service.dart' as directions; // Alias para evitar conflicto
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class InteractiveMapWidget extends StatefulWidget {
   final String? shipmentId;
   final bool showAllShipments;
-  
+
   const InteractiveMapWidget({
     super.key,
     this.shipmentId,
@@ -17,495 +18,616 @@ class InteractiveMapWidget extends StatefulWidget {
   State<InteractiveMapWidget> createState() => _InteractiveMapWidgetState();
 }
 
-class _InteractiveMapWidgetState extends State<InteractiveMapWidget> {
-  String _mapType = 'normal';
-  bool _showTraffic = false;
-  bool _showRoute = true;
-  double _zoom = 1.0;
-  Offset _panOffset = Offset.zero;
-  
-  // Datos simulados de ubicaciones
-  final List<Map<String, dynamic>> _shipmentLocations = [
+class _InteractiveMapWidgetState extends State<InteractiveMapWidget>
+    with TickerProviderStateMixin {
+  late AnimationController _animationController;
+  late AnimationController _pulseController;
+
+  double _mapCenterLat = 20.6597;
+  double _mapCenterLng = -103.3496;
+  double _zoomLevel = 8.0;
+
+  String? _selectedShipmentId;
+  directions.RouteInfo? _currentRoute;
+  bool _isLoadingRoute = false;
+  bool _showRouteSteps = false;
+
+  final directions.DirectionsService _directionsService = directions.DirectionsService();
+
+  final List<Map<String, dynamic>> _shipments = [
     {
       'id': 'SH001',
-      'product': 'Vino Tinto',
+      'product': 'Vino Tinto Reserva',
+      'status': 'En tránsito',
+      'currentLat': 20.6597,
+      'currentLng': -103.3496,
+      'originLat': 20.6765,
+      'originLng': -103.3475,
+      'destLat': 19.4326,
+      'destLng': -99.1332,
+      'origin': 'Guadalajara, JAL',
+      'destination': 'Ciudad de México, CDMX',
+      'recipient': 'Juan Pérez',
+      'estimatedDelivery': '29 Enero 2024',
+      'statusColor': AppTheme.info,
+      'temperature': 18.5,
+      'humidity': 65.2,
+      'lastUpdate': '2 min',
+    },
+    {
+      'id': 'SH002',
+      'product': 'Tequila Premium',
+      'status': 'Entregado',
       'currentLat': 19.4326,
       'currentLng': -99.1332,
       'originLat': 20.6597,
       'originLng': -103.3496,
       'destLat': 19.4326,
       'destLng': -99.1332,
-      'status': 'inTransit',
-      'progress': 0.75,
-      'speed': 85,
-      'eta': '2 horas',
-      'driver': 'Carlos López',
-      'temperature': '18°C',
-    },
-    {
-      'id': 'SH002',
-      'product': 'Tequila Premium',
-      'currentLat': 25.6866,
-      'currentLng': -100.3161,
-      'originLat': 20.9230,
-      'originLng': -103.5810,
-      'destLat': 25.6866,
-      'destLng': -100.3161,
-      'status': 'delivered',
-      'progress': 1.0,
-      'speed': 0,
-      'eta': 'Entregado',
-      'driver': 'Ana Ruiz',
-      'temperature': '22°C',
+      'origin': 'Guadalajara, JAL',
+      'destination': 'Ciudad de México, CDMX',
+      'recipient': 'María González',
+      'estimatedDelivery': '28 Enero 2024',
+      'statusColor': AppTheme.success,
+      'temperature': 20.1,
+      'humidity': 58.7,
+      'lastUpdate': '1 hora',
     },
     {
       'id': 'SH003',
-      'product': 'Whisky Escocés',
-      'currentLat': 21.1619,
-      'currentLng': -86.8515,
-      'originLat': 32.5027,
-      'originLng': -117.0041,
+      'product': 'Cerveza Artesanal',
+      'status': 'En bodega',
+      'currentLat': 25.6866,
+      'currentLng': -100.3161,
+      'originLat': 25.6866,
+      'originLng': -100.3161,
       'destLat': 21.1619,
       'destLng': -86.8515,
-      'status': 'delayed',
-      'progress': 0.6,
-      'speed': 45,
-      'eta': '4 horas',
-      'driver': 'Luis Mendoza',
-      'temperature': '28°C',
+      'origin': 'Monterrey, NL',
+      'destination': 'Cancún, QR',
+      'recipient': 'Hotel Paradise',
+      'estimatedDelivery': '31 Enero 2024',
+      'statusColor': AppTheme.warning,
+      'temperature': 15.3,
+      'humidity': 72.1,
+      'lastUpdate': '5 min',
     },
   ];
 
+  // Define el conjunto de marcadores
+  final Set<Marker> _markers = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 2000),
+      vsync: this,
+    )..repeat();
+
+    if (widget.shipmentId != null) {
+      _selectedShipmentId = widget.shipmentId;
+      _centerMapOnShipment(widget.shipmentId!);
+      _loadRouteForShipment(widget.shipmentId!);
+    }
+
+    // Agrega marcadores basados en los datos de los envíos
+    for (final shipment in _shipments) {
+      _markers.add(
+        Marker(
+          markerId: MarkerId(shipment['id']),
+          position: LatLng(shipment['currentLat'], shipment['currentLng']),
+          infoWindow: InfoWindow(
+            title: shipment['product'],
+            snippet: shipment['status'],
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  void _centerMapOnShipment(String shipmentId) {
+    final shipment = _shipments.firstWhere((s) => s['id'] == shipmentId);
+    setState(() {
+      _mapCenterLat = shipment['currentLat'];
+      _mapCenterLng = shipment['currentLng'];
+      _zoomLevel = 10.0;
+    });
+  }
+
+  Future<void> _loadRouteForShipment(String shipmentId) async {
+    final shipment = _shipments.firstWhere((s) => s['id'] == shipmentId);
+    
+    setState(() {
+      _isLoadingRoute = true;
+      _currentRoute = null;
+    });
+
+    try {
+      // Usa la API real o simulada según prefieras
+      final route = await _directionsService.getSimulatedRoute(
+        originLat: shipment['originLat'],
+        originLng: shipment['originLng'],
+        destLat: shipment['destLat'],
+        destLng: shipment['destLng'],
+      );
+
+      // Para usar la API real de Google (necesitas API Key):
+      // final route = await _directionsService.getRoute(
+      //   originLat: shipment['originLat'],
+      //   originLng: shipment['originLng'],
+      //   destLat: shipment['destLat'],
+      //   destLng: shipment['destLng'],
+      // );
+
+      setState(() {
+        _currentRoute = route;
+        _isLoadingRoute = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingRoute = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error cargando ruta: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(
-        title: Text(localizations.map),
+        title: Text(widget.shipmentId != null 
+            ? 'Rastreo ${widget.shipmentId}' 
+            : 'Mapa de Envíos'),
+        backgroundColor: AppTheme.primaryDark,
+        foregroundColor: Colors.white,
         actions: [
-          PopupMenuButton<String>(
+          if (_selectedShipmentId != null) ...[
+            IconButton(
+              icon: Icon(_showRouteSteps ? Icons.map : Icons.list),
+              onPressed: () {
+                setState(() {
+                  _showRouteSteps = !_showRouteSteps;
+                });
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () => _loadRouteForShipment(_selectedShipmentId!),
+            ),
+          ],
+          IconButton(
             icon: const Icon(Icons.layers),
-            onSelected: (value) {
-              setState(() {
-                _mapType = value;
-              });
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 'normal', child: Text('Normal')),
-              PopupMenuItem(value: 'satellite', child: Text(localizations.satellite)),
-              PopupMenuItem(value: 'hybrid', child: Text(localizations.hybrid)),
-              PopupMenuItem(value: 'terrain', child: Text(localizations.terrain)),
-            ],
+            onPressed: _showLayersMenu,
           ),
         ],
       ),
       body: Stack(
         children: [
           // Mapa principal
-          _buildMapContainer(localizations),
-          
-          // Controles de zoom
-          _buildZoomControls(),
-          
-          // Controles de capa
-          _buildLayerControls(localizations),
-          
-          // Lista de envíos (si se muestran todos)
-          if (widget.showAllShipments) _buildShipmentsList(localizations),
-          
-          // Información del envío específico
-          if (widget.shipmentId != null) _buildShipmentInfo(localizations),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _centerOnCurrentLocation(),
-        backgroundColor: AppTheme.primaryMedium,
-        child: const Icon(Icons.my_location),
-      ),
-    );
-  }
-
-  Widget _buildMapContainer(AppLocalizations localizations) {
-    return GestureDetector(
-      onPanUpdate: (details) {
-        setState(() {
-          _panOffset += details.delta;
-        });
-      },
-      onScaleUpdate: (details) {
-        setState(() {
-          _zoom = (_zoom * details.scale).clamp(0.5, 3.0);
-        });
-      },
-      child: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: BoxDecoration(
-          color: _getMapBackgroundColor(),
-        ),
-        child: Transform.scale(
-          scale: _zoom,
-          child: Transform.translate(
-            offset: _panOffset,
-            child: CustomPaint(
-              painter: MapPainter(
-                shipments: widget.showAllShipments 
-                    ? _shipmentLocations 
-                    : _shipmentLocations.where((s) => s['id'] == widget.shipmentId).toList(),
-                mapType: _mapType,
-                showTraffic: _showTraffic,
-                showRoute: _showRoute,
-                onMarkerTap: _showShipmentDetails,
-              ),
-              size: Size.infinite,
+          GoogleMap(
+            initialCameraPosition: const CameraPosition(
+              target: LatLng(20.6597, -103.3496), // Coordenadas iniciales
+              zoom: 10,
             ),
+            markers: Set<Marker>.of(_markers), // Agrega marcadores si es necesario
           ),
-        ),
-      ),
-    );
-  }
 
-  Widget _buildZoomControls() {
-    return Positioned(
-      right: 16,
-      top: 100,
-      child: Column(
-        children: [
-          FloatingActionButton.small(
-            heroTag: "zoom_in",
-            onPressed: () {
-              setState(() {
-                _zoom = (_zoom + 0.2).clamp(0.5, 3.0);
-              });
-            },
-            backgroundColor: Colors.white,
-            foregroundColor: AppTheme.primaryDark,
-            child: const Icon(Icons.add),
-          ),
-          const SizedBox(height: 8),
-          FloatingActionButton.small(
-            heroTag: "zoom_out",
-            onPressed: () {
-              setState(() {
-                _zoom = (_zoom - 0.2).clamp(0.5, 3.0);
-              });
-            },
-            backgroundColor: Colors.white,
-            foregroundColor: AppTheme.primaryDark,
-            child: const Icon(Icons.remove),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLayerControls(AppLocalizations localizations) {
-    return Positioned(
-      left: 16,
-      top: 100,
-      child: Column(
-        children: [
-          _buildControlButton(
-            icon: _showRoute ? Icons.route : Icons.route_outlined,
-            label: 'Rutas',
-            isActive: _showRoute,
-            onTap: () {
-              setState(() {
-                _showRoute = !_showRoute;
-              });
-            },
-          ),
-          const SizedBox(height: 8),
-          _buildControlButton(
-            icon: _showTraffic ? Icons.traffic : Icons.traffic_outlined,
-            label: 'Tráfico',
-            isActive: _showTraffic,
-            onTap: () {
-              setState(() {
-                _showTraffic = !_showTraffic;
-              });
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildControlButton({
-    required IconData icon,
-    required String label,
-    required bool isActive,
-    required VoidCallback onTap,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isActive ? AppTheme.primaryMedium : Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  icon,
-                  color: isActive ? Colors.white : AppTheme.primaryDark,
-                  size: 20,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: isActive ? Colors.white : AppTheme.primaryDark,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildShipmentsList(AppLocalizations localizations) {
-    return Positioned(
-      bottom: 20,
-      left: 16,
-      right: 16,
-      child: SizedBox(
-        height: 120,
-        child: ListView.builder(
-          scrollDirection: Axis.horizontal,
-          itemCount: _shipmentLocations.length,
-          itemBuilder: (context, index) {
-            final shipment = _shipmentLocations[index];
-            return Container(
-              width: 280,
-              margin: const EdgeInsets.only(right: 12),
-              child: _buildShipmentCard(shipment, localizations),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildShipmentCard(Map<String, dynamic> shipment, AppLocalizations localizations) {
-    final status = shipment['status'] as String;
-    final statusConfig = _getStatusConfig(status);
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: statusConfig['color'].withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Icon(
-                  statusConfig['icon'],
-                  color: statusConfig['color'],
-                  size: 16,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  shipment['id'],
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryDark,
+          // Indicador de carga de ruta
+          if (_isLoadingRoute)
+            const Positioned(
+              top: 16,
+              left: 16,
+              right: 16,
+              child: Card(
+                child: Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      SizedBox(width: 12),
+                      Text('Calculando ruta...'),
+                    ],
                   ),
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: statusConfig['color'].withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  statusConfig['label'],
-                  style: TextStyle(
-                    color: statusConfig['color'],
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            shipment['product'],
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 12,
             ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(Icons.speed, size: 14, color: Colors.grey[600]),
-              const SizedBox(width: 4),
-              Text(
-                '${shipment['speed']} km/h',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 11,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Icon(Icons.access_time, size: 14, color: Colors.grey[600]),
-              const SizedBox(width: 4),
-              Text(
-                'ETA: ${shipment['eta']}',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildShipmentInfo(AppLocalizations localizations) {
-    final shipment = _shipmentLocations.firstWhere(
-      (s) => s['id'] == widget.shipmentId,
-      orElse: () => _shipmentLocations.first,
-    );
-
-    return Positioned(
-      top: 20,
-      left: 16,
-      right: 16,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
+          // Panel de información de ruta
+          if (_currentRoute != null && !_isLoadingRoute)
+            Positioned(
+              top: 16,
+              left: 16,
+              right: 16,
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        shipment['id'],
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryDark,
-                        ),
+                      const Row(
+                        children: [
+                          Icon(Icons.route, color: AppTheme.primaryMedium),
+                          SizedBox(width: 8),
+                          Text(
+                            'Ruta calculada',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
                       ),
-                      Text(
-                        shipment['product'],
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                        ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(Icons.straighten, size: 16, color: Colors.grey[600]),
+                          const SizedBox(width: 4),
+                          Text(_currentRoute!.distance),
+                          const SizedBox(width: 16),
+                          Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+                          const SizedBox(width: 4),
+                          Text(_currentRoute!.duration),
+                        ],
                       ),
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.info.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.local_shipping,
-                    color: AppTheme.info,
-                    size: 20,
-                  ),
-                ),
-              ],
+              ),
             ),
-            const SizedBox(height: 12),
-            Row(
+
+          // Panel de pasos de navegación
+          if (_showRouteSteps && _currentRoute != null)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                height: MediaQuery.of(context).size.height * 0.4,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: const BoxDecoration(
+                        color: AppTheme.primaryMedium,
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.directions, color: Colors.white),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Instrucciones de navegación',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white),
+                            onPressed: () {
+                              setState(() {
+                                _showRouteSteps = false;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _currentRoute!.steps.length,
+                        itemBuilder: (context, index) {
+                          final step = _currentRoute!.steps[index];
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: AppTheme.primaryMedium,
+                                child: Text(
+                                  '${index + 1}',
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                              ),
+                              title: Text(step.instruction),
+                              subtitle: Text('${step.distance} • ${step.duration}'),
+                              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          // Controles de zoom
+          Positioned(
+            right: 16,
+            bottom: _showRouteSteps ? MediaQuery.of(context).size.height * 0.4 + 16 : 100,
+            child: Column(
               children: [
-                Expanded(
-                  child: _buildInfoItem(
-                    'Velocidad',
-                    '${shipment['speed']} km/h',
-                    Icons.speed,
-                  ),
+                FloatingActionButton.small(
+                  heroTag: "zoom_in",
+                  onPressed: () {
+                    setState(() {
+                      _zoomLevel = (_zoomLevel + 1).clamp(1.0, 18.0);
+                    });
+                  },
+                  backgroundColor: Colors.white,
+                  foregroundColor: AppTheme.primaryDark,
+                  child: const Icon(Icons.add),
                 ),
-                Expanded(
-                  child: _buildInfoItem(
-                    'ETA',
-                    shipment['eta'],
-                    Icons.access_time,
-                  ),
-                ),
-                Expanded(
-                  child: _buildInfoItem(
-                    'Temp.',
-                    shipment['temperature'],
-                    Icons.thermostat,
-                  ),
+                const SizedBox(height: 8),
+                FloatingActionButton.small(
+                  heroTag: "zoom_out",
+                  onPressed: () {
+                    setState(() {
+                      _zoomLevel = (_zoomLevel - 1).clamp(1.0, 18.0);
+                    });
+                  },
+                  backgroundColor: Colors.white,
+                  foregroundColor: AppTheme.primaryDark,
+                  child: const Icon(Icons.remove),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            LinearProgressIndicator(
-              value: shipment['progress'],
-              backgroundColor: AppTheme.surface,
-              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.info),
-              borderRadius: BorderRadius.circular(4),
+          ),
+
+          // Detector de gestos para seleccionar envíos
+          GestureDetector(
+            onTapUp: (details) => _handleMapTap(details.localPosition),
+            child: Container(
+              width: double.infinity,
+              height: double.infinity,
+              color: Colors.transparent,
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Conductor: ${shipment['driver']}',
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 12,
+          ),
+        ],
+      ),
+      floatingActionButton: widget.showAllShipments ? FloatingActionButton(
+        onPressed: _centerMapOnAllShipments,
+        backgroundColor: AppTheme.primaryMedium,
+        child: const Icon(Icons.center_focus_strong, color: Colors.white),
+      ) : null,
+    );
+  }
+
+  void _handleMapTap(Offset localPosition) {
+    final size = MediaQuery.of(context).size;
+    final shipmentTapped = _getShipmentAtPosition(localPosition, size);
+    
+    if (shipmentTapped != null) {
+      setState(() {
+        _selectedShipmentId = shipmentTapped['id'];
+      });
+      _showShipmentDetails(shipmentTapped);
+      _loadRouteForShipment(shipmentTapped['id']);
+    }
+  }
+
+  Map<String, dynamic>? _getShipmentAtPosition(Offset position, Size screenSize) {
+    for (final shipment in _shipments) {
+      final screenPos = _latLngToScreen(
+        shipment['currentLat'],
+        shipment['currentLng'],
+        screenSize,
+      );
+      
+      final distance = (position - screenPos).distance;
+      if (distance < 40) {
+        return shipment;
+      }
+    }
+    return null;
+  }
+
+  Offset _latLngToScreen(double lat, double lng, Size screenSize) {
+    final double latRange = 180.0 / math.pow(2, _zoomLevel - 1);
+    final double lngRange = 360.0 / math.pow(2, _zoomLevel - 1);
+    
+    final double x = ((lng - (_mapCenterLng - lngRange / 2)) / lngRange) * screenSize.width;
+    final double y = (((_mapCenterLat + latRange / 2) - lat) / latRange) * screenSize.height;
+    
+    return Offset(x, y);
+  }
+
+  void _showShipmentDetails(Map<String, dynamic> shipment) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: shipment['statusColor'].withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.local_shipping,
+                            color: shipment['statusColor'],
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Envío ${shipment['id']}',
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.primaryDark,
+                                ),
+                              ),
+                              Text(
+                                shipment['product'],
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: shipment['statusColor'],
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Text(
+                            shipment['status'],
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    
+                    if (_currentRoute != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryLight.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppTheme.primaryLight),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(Icons.route, color: AppTheme.primaryMedium),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Información de ruta',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.primaryDark,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Distancia',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                      Text(
+                                        _currentRoute!.distance,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.primaryDark,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Tiempo estimado',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                      Text(
+                                        _currentRoute!.duration,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.primaryDark,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    
+                    _buildDetailRow('Destinatario', shipment['recipient']),
+                    _buildDetailRow('Origen', shipment['origin']),
+                    _buildDetailRow('Destino', shipment['destination']),
+                    _buildDetailRow('Entrega estimada', shipment['estimatedDelivery']),
+                    _buildDetailRow('Temperatura', '${shipment['temperature']}°C'),
+                    _buildDetailRow('Humedad', '${shipment['humidity']}%'),
+                    _buildDetailRow('Última actualización', 'Hace ${shipment['lastUpdate']}'),
+                  ],
+                ),
               ),
             ),
           ],
@@ -514,358 +636,390 @@ class _InteractiveMapWidgetState extends State<InteractiveMapWidget> {
     );
   }
 
-  Widget _buildInfoItem(String label, String value, IconData icon) {
-    return Column(
-      children: [
-        Icon(icon, size: 16, color: AppTheme.primaryMedium),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            color: AppTheme.primaryDark,
-            fontSize: 12,
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              '$label:',
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                color: Colors.grey[600],
+              ),
+            ),
           ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.grey[600],
-            fontSize: 10,
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: AppTheme.primaryDark,
+              ),
+            ),
           ),
-        ),
-      ],
-    );
-  }
-
-  Color _getMapBackgroundColor() {
-    switch (_mapType) {
-      case 'satellite':
-        return const Color(0xFF2C5234);
-      case 'hybrid':
-        return const Color(0xFF3E4A3B);
-      case 'terrain':
-        return const Color(0xFFF5E6D3);
-      default:
-        return const Color(0xFFF0F8FF);
-    }
-  }
-
-  Map<String, dynamic> _getStatusConfig(String status) {
-    switch (status) {
-      case 'inTransit':
-        return {
-          'color': AppTheme.info,
-          'icon': Icons.local_shipping,
-          'label': 'En Tránsito',
-        };
-      case 'delivered':
-        return {
-          'color': AppTheme.success,
-          'icon': Icons.check_circle,
-          'label': 'Entregado',
-        };
-      case 'delayed':
-        return {
-          'color': AppTheme.error,
-          'icon': Icons.schedule,
-          'label': 'Retrasado',
-        };
-      default:
-        return {
-          'color': Colors.grey,
-          'icon': Icons.help_outline,
-          'label': 'Desconocido',
-        };
-    }
-  }
-
-  void _centerOnCurrentLocation() {
-    setState(() {
-      _panOffset = Offset.zero;
-      _zoom = 1.5;
-    });
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Centrando en ubicación actual'),
-        duration: Duration(seconds: 1),
+        ],
       ),
     );
   }
 
-  void _showShipmentDetails(String shipmentId) {
-    final shipment = _shipmentLocations.firstWhere((s) => s['id'] == shipmentId);
-    
+  void _showLayersMenu() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  height: 4,
-                  width: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.map),
+              title: const Text('Vista del mapa'),
+              trailing: const Icon(Icons.arrow_forward_ios),
+              onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              leading: const Icon(Icons.satellite),
+              title: const Text('Vista satelital'),
+              trailing: const Icon(Icons.arrow_forward_ios),
+              onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              leading: const Icon(Icons.traffic),
+              title: const Text('Mostrar tráfico'),
+              trailing: Switch(
+                value: true,
+                onChanged: (value) => Navigator.pop(context),
               ),
-              const SizedBox(height: 20),
-              const Text(
-                'Detalles del Envío',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.primaryDark,
-                ),
-              ),
-              const SizedBox(height: 16),
-              
-              ListTile(
-                leading: const Icon(Icons.inventory, color: AppTheme.primaryMedium),
-                title: Text(shipment['product']),
-                subtitle: Text('ID: ${shipment['id']}'),
-              ),
-              
-              ListTile(
-                leading: const Icon(Icons.person, color: AppTheme.success),
-                title: Text(shipment['driver']),
-                subtitle: const Text('Conductor asignado'),
-              ),
-              
-              ListTile(
-                leading: const Icon(Icons.thermostat, color: AppTheme.warning),
-                title: Text(shipment['temperature']),
-                subtitle: const Text('Temperatura actual'),
-              ),
-              
-              const SizedBox(height: 16),
-              
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
-                      label: const Text('Cerrar'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        // Navegar a detalles completos
-                      },
-                      icon: const Icon(Icons.info),
-                      label: const Text('Ver Más'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  void _centerMapOnAllShipments() {
+    if (_shipments.isEmpty) return;
+    
+    double minLat = _shipments.first['currentLat'];
+    double maxLat = _shipments.first['currentLat'];
+    double minLng = _shipments.first['currentLng'];
+    double maxLng = _shipments.first['currentLng'];
+    
+    for (final shipment in _shipments) {
+      minLat = math.min(minLat, shipment['currentLat']);
+      maxLat = math.max(maxLat, shipment['currentLat']);
+      minLng = math.min(minLng, shipment['currentLng']);
+      maxLng = math.max(maxLng, shipment['currentLng']);
+    }
+    
+    setState(() {
+      _mapCenterLat = (minLat + maxLat) / 2;
+      _mapCenterLng = (minLng + maxLng) / 2;
+      _zoomLevel = 6.0;
+    });
   }
 }
 
 class MapPainter extends CustomPainter {
+  final double centerLat;
+  final double centerLng;
+  final double zoomLevel;
   final List<Map<String, dynamic>> shipments;
-  final String mapType;
-  final bool showTraffic;
-  final bool showRoute;
-  final Function(String) onMarkerTap;
+  final String? selectedShipmentId;
+  final double animationValue;
+  final double pulseValue;
+  final directions.RouteInfo? routeInfo;
 
   MapPainter({
+    required this.centerLat,
+    required this.centerLng,
+    required this.zoomLevel,
     required this.shipments,
-    required this.mapType,
-    required this.showTraffic,
-    required this.showRoute,
-    required this.onMarkerTap,
+    this.selectedShipmentId,
+    required this.animationValue,
+    required this.pulseValue,
+    this.routeInfo,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint();
-    
-    // Dibujar fondo del mapa
-    _drawMapBackground(canvas, size, paint);
-    
-    // Dibujar rutas si están habilitadas
-    if (showRoute) {
-      _drawRoutes(canvas, size, paint);
-    }
-    
-    // Dibujar tráfico si está habilitado
-    if (showTraffic) {
-      _drawTraffic(canvas, size, paint);
-    }
-    
-    // Dibujar marcadores de envíos
-    _drawShipmentMarkers(canvas, size, paint);
+    _drawBackground(canvas, size);
+    _drawGrid(canvas, size);
+    _drawRoute(canvas, size);
+    _drawShipments(canvas, size);
+    _drawLegend(canvas, size);
   }
 
-  void _drawMapBackground(Canvas canvas, Size size, Paint paint) {
-    // Dibujar grid del mapa
-    paint.color = Colors.grey.withOpacity(0.2);
-    paint.strokeWidth = 1;
+  void _drawBackground(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.blue[100]!,
+          Colors.green[50]!,
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
     
-    const gridSize = 50.0;
-    for (double x = 0; x < size.width; x += gridSize) {
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint);
+  }
+
+  void _drawGrid(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.grey.withOpacity(0.2)
+      ..strokeWidth = 1;
+
+    const gridSpacing = 50.0;
+    
+    for (double x = 0; x <= size.width; x += gridSpacing) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
-    for (double y = 0; y < size.height; y += gridSize) {
+    
+    for (double y = 0; y <= size.height; y += gridSpacing) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
     }
-    
-    // Dibujar algunas "carreteras" simuladas
-    paint.color = Colors.grey[400]!;
-    paint.strokeWidth = 3;
-    
-    // Carretera horizontal
-    canvas.drawLine(
-      Offset(0, size.height * 0.3),
-      Offset(size.width, size.height * 0.3),
-      paint,
-    );
-    
-    // Carretera vertical
-    canvas.drawLine(
-      Offset(size.width * 0.6, 0),
-      Offset(size.width * 0.6, size.height),
-      paint,
-    );
-    
-    // Carretera diagonal
-    canvas.drawLine(
-      Offset(0, size.height * 0.8),
-      Offset(size.width, size.height * 0.2),
-      paint,
-    );
   }
 
-  void _drawRoutes(Canvas canvas, Size size, Paint paint) {
-    paint.strokeWidth = 4;
-    paint.style = PaintingStyle.stroke;
-    
-    for (final shipment in shipments) {
-      // Convertir coordenadas geográficas a posición en canvas
-      final origin = _geoToCanvas(
-        shipment['originLat'],
-        shipment['originLng'],
-        size,
-      );
-      final destination = _geoToCanvas(
-        shipment['destLat'],
-        shipment['destLng'],
-        size,
-      );
-      final current = _geoToCanvas(
-        shipment['currentLat'],
-        shipment['currentLng'],
-        size,
-      );
-      
-      // Dibujar ruta completa (gris)
-      paint.color = Colors.grey.withOpacity(0.5);
-      canvas.drawLine(origin, destination, paint);
-      
-      // Dibujar ruta completada (azul)
-      paint.color = AppTheme.info;
-      canvas.drawLine(origin, current, paint);
-    }
-  }
+  void _drawRoute(Canvas canvas, Size size) {
+    if (routeInfo == null) return;
 
-  void _drawTraffic(Canvas canvas, Size size, Paint paint) {
-    // Simular datos de tráfico
-    final random = math.Random(42); // Seed fijo para consistencia
-    paint.strokeWidth = 6;
-    
-    for (int i = 0; i < 10; i++) {
-      final x1 = random.nextDouble() * size.width;
-      final y1 = random.nextDouble() * size.height;
-      final x2 = x1 + (random.nextDouble() - 0.5) * 100;
-      final y2 = y1 + (random.nextDouble() - 0.5) * 100;
+    final routePaint = Paint()
+      ..color = AppTheme.primaryMedium
+      ..strokeWidth = 4
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final routeBorderPaint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 6
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    Path routePath = Path();
+    bool isFirst = true;
+
+    for (final point in routeInfo!.polylinePoints) {
+      final screenPos = _latLngToScreen(point.latitude, point.longitude, size);
       
-      // Color según nivel de tráfico
-      final trafficLevel = random.nextDouble();
-      if (trafficLevel < 0.3) {
-        paint.color = Colors.green; // Tráfico ligero
-      } else if (trafficLevel < 0.7) {
-        paint.color = Colors.orange; // Tráfico moderado
+      if (isFirst) {
+        routePath.moveTo(screenPos.dx, screenPos.dy);
+        isFirst = false;
       } else {
-        paint.color = Colors.red; // Tráfico pesado
+        routePath.lineTo(screenPos.dx, screenPos.dy);
       }
+    }
+
+    // Dibujar borde blanco primero
+    canvas.drawPath(routePath, routeBorderPaint);
+    // Luego la línea de color
+    canvas.drawPath(routePath, routePaint);
+
+    // Dibujar puntos de inicio y fin
+    if (routeInfo!.polylinePoints.isNotEmpty) {
+      final startPoint = routeInfo!.polylinePoints.first;
+      final endPoint = routeInfo!.polylinePoints.last;
       
-      canvas.drawLine(Offset(x1, y1), Offset(x2, y2), paint);
+      final startPos = _latLngToScreen(startPoint.latitude, startPoint.longitude, size);
+      final endPos = _latLngToScreen(endPoint.latitude, endPoint.longitude, size);
+
+      // Punto de inicio (verde)
+      final startPaint = Paint()..color = AppTheme.success;
+      canvas.drawCircle(Offset(startPos.dx, startPos.dy), 8, startPaint);
+      
+      // Punto final (rojo)
+      final endPaint = Paint()..color = AppTheme.error;
+      canvas.drawCircle(Offset(endPos.dx, endPos.dy), 8, endPaint);
     }
   }
 
-  void _drawShipmentMarkers(Canvas canvas, Size size, Paint paint) {
+  void _drawShipments(Canvas canvas, Size size) {
     for (final shipment in shipments) {
-      final position = _geoToCanvas(
+      final position = _latLngToScreen(
         shipment['currentLat'],
         shipment['currentLng'],
         size,
       );
-      
-      final status = shipment['status'] as String;
-      Color markerColor;
-      
-      switch (status) {
-        case 'inTransit':
-          markerColor = AppTheme.info;
-          break;
-        case 'delivered':
-          markerColor = AppTheme.success;
-          break;
-        case 'delayed':
-          markerColor = AppTheme.error;
-          break;
-        default:
-          markerColor = Colors.grey;
+
+      final isSelected = shipment['id'] == selectedShipmentId;
+      final baseRadius = isSelected ? 20.0 : 15.0;
+      final pulseRadius = baseRadius + (pulseValue * 10);
+
+      // Efecto de pulso para envío seleccionado
+      if (isSelected) {
+        final pulsePaint = Paint()
+          ..color = shipment['statusColor'].withOpacity(0.3 * (1 - pulseValue))
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(position, pulseRadius, pulsePaint);
       }
-      
-      // Dibujar sombra del marcador
-      paint.color = Colors.black.withOpacity(0.2);
-      paint.style = PaintingStyle.fill;
-      canvas.drawCircle(position + const Offset(2, 2), 12, paint);
-      
-      // Dibujar marcador principal
-      paint.color = markerColor;
-      canvas.drawCircle(position, 10, paint);
-      
-      // Dibujar borde del marcador
-      paint.color = Colors.white;
-      paint.style = PaintingStyle.stroke;
-      paint.strokeWidth = 2;
-      canvas.drawCircle(position, 10, paint);
-      
-      // Dibujar icono en el marcador
-      paint.style = PaintingStyle.fill;
-      paint.color = Colors.white;
-      canvas.drawCircle(position, 6, paint);
+
+      // Círculo de fondo blanco
+      final backgroundPaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(position, baseRadius + 2, backgroundPaint);
+
+      // Círculo principal
+      final shipmentPaint = Paint()
+        ..color = shipment['statusColor']
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(position, baseRadius, shipmentPaint);
+
+      // Icono del envío
+      _drawShipmentIcon(canvas, position, isSelected);
+
+      // Etiqueta con ID
+      _drawShipmentLabel(canvas, position, shipment['id'], baseRadius);
     }
   }
 
-  Offset _geoToCanvas(double lat, double lng, Size size) {
-    // Conversión simple de coordenadas geográficas a canvas
-    // En una implementación real, se usaría una proyección cartográfica apropiada
-    final x = ((lng + 180) / 360) * size.width;
-    final y = ((90 - lat) / 180) * size.height;
+  void _drawShipmentIcon(Canvas canvas, Offset position, bool isSelected) {
+    final iconPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+
+    const iconSize = 8.0;
+    final iconRect = Rect.fromCenter(
+      center: position,
+      width: iconSize * 2,
+      height: iconSize,
+    );
+    
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(iconRect, const Radius.circular(2)),
+      iconPaint,
+    );
+  }
+
+  void _drawShipmentLabel(Canvas canvas, Offset position, String label, double radius) {
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: const TextStyle(
+          color: AppTheme.primaryDark,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    
+    textPainter.layout();
+    
+    final labelPosition = Offset(
+      position.dx - textPainter.width / 2,
+      position.dy + radius + 8,
+    );
+
+    // Fondo semi-transparente para la etiqueta
+    final labelBg = Paint()
+      ..color = Colors.white.withOpacity(0.9)
+      ..style = PaintingStyle.fill;
+    
+    final labelRect = Rect.fromLTWH(
+      labelPosition.dx - 4,
+      labelPosition.dy - 2,
+      textPainter.width + 8,
+      textPainter.height + 4,
+    );
+    
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(labelRect, const Radius.circular(4)),
+      labelBg,
+    );
+    
+    textPainter.paint(canvas, labelPosition);
+  }
+
+  void _drawLegend(Canvas canvas, Size size) {
+    final legendPaint = Paint()
+      ..color = Colors.white.withOpacity(0.95)
+      ..style = PaintingStyle.fill;
+
+    const legendWidth = 160.0;
+    const legendHeight = 120.0;
+    const margin = 16.0;
+
+    final legendRect = Rect.fromLTWH(
+      margin,
+      size.height - legendHeight - margin,
+      legendWidth,
+      legendHeight,
+    );
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(legendRect, const Radius.circular(8)),
+      legendPaint,
+    );
+
+    // Border
+    final borderPaint = Paint()
+      ..color = Colors.grey[300]!
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(legendRect, const Radius.circular(8)),
+      borderPaint,
+    );
+
+    // Título de la leyenda
+    final titlePainter = TextPainter(
+      text: const TextSpan(
+        text: 'Leyenda',
+        style: TextStyle(
+          color: AppTheme.primaryDark,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    titlePainter.layout();
+    titlePainter.paint(canvas, Offset(margin + 8, legendRect.top + 8));
+
+    // Elementos de la leyenda
+    const itemHeight = 16.0;
+    double currentY = legendRect.top + 28;
+
+    _drawLegendItem(canvas, Offset(margin + 8, currentY), AppTheme.info, 'En tránsito');
+    currentY += itemHeight;
+    _drawLegendItem(canvas, Offset(margin + 8, currentY), AppTheme.success, 'Entregado');
+    currentY += itemHeight;
+    _drawLegendItem(canvas, Offset(margin + 8, currentY), AppTheme.warning, 'En bodega');
+    currentY += itemHeight;
+    _drawLegendItem(canvas, Offset(margin + 8, currentY), AppTheme.error, 'Retraso');
+  }
+
+  void _drawLegendItem(Canvas canvas, Offset position, Color color, String text) {
+    final circlePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    
+    canvas.drawCircle(Offset(position.dx + 6, position.dy + 6), 4, circlePaint);
+
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: const TextStyle(
+          color: AppTheme.primaryDark,
+          fontSize: 10,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+    textPainter.paint(canvas, Offset(position.dx + 18, position.dy + 2));
+  }
+
+  Offset _latLngToScreen(double lat, double lng, Size screenSize) {
+    final double latRange = 180.0 / math.pow(2, zoomLevel - 1);
+    final double lngRange = 360.0 / math.pow(2, zoomLevel - 1);
+    
+    final double x = ((lng - (centerLng - lngRange / 2)) / lngRange) * screenSize.width;
+    final double y = (((centerLat + latRange / 2) - lat) / latRange) * screenSize.height;
+    
     return Offset(x, y);
   }
 

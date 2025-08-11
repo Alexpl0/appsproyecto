@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:rastreo_app/l10n/app_localizations.dart';
 import 'package:rastreo_app/screens/sensors/device_selection_screen.dart';
 import 'package:rastreo_app/widgets/language_switcher.dart';
 
 // Importa las pantallas que se mostrarán en la barra de navegación.
 // Revertimos a la pantalla de envíos anterior.
 import 'package:rastreo_app/widgets/home_page_content.dart';
-import 'package:rastreo_app/screens/shipments/shipments_screen.dart'; // <-- Pantalla original
+// <-- Pantalla original
 import 'package:rastreo_app/widgets/modern_shipments_screen.dart'; // <-- Pantalla de envíos
 import 'package:rastreo_app/widgets/advanced_history_screen.dart';
 import 'package:rastreo_app/widgets/advanced_settings_screen.dart'; // Nueva importación
@@ -34,7 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context)!;
+    final localizations = AppLocalizations.of(context);
 
     // Títulos para la AppBar, correspondientes a cada página.
     final List<String> titles = [

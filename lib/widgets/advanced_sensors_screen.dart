@@ -204,8 +204,8 @@ class _AdvancedSensorsScreenState extends State<AdvancedSensorsScreen>
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddDeviceModal(context, localizations),
-        child: const Icon(Icons.add),
         backgroundColor: AppTheme.primaryMedium,
+        child: const Icon(Icons.add),
       ),
     );
   }
@@ -318,17 +318,17 @@ class _AdvancedSensorsScreenState extends State<AdvancedSensorsScreen>
         labelColor: AppTheme.primaryMedium,
         unselectedLabelColor: Colors.grey,
         labelStyle: const TextStyle(fontWeight: FontWeight.w600),
-        tabs: [
+        tabs: const [
           Tab(
-            icon: const Icon(Icons.dashboard),
+            icon: Icon(Icons.dashboard),
             text: 'Dispositivos',
           ),
           Tab(
-            icon: const Icon(Icons.analytics),
+            icon: Icon(Icons.analytics),
             text: 'Detalles',
           ),
           Tab(
-            icon: const Icon(Icons.settings),
+            icon: Icon(Icons.settings),
             text: 'Alertas',
           ),
         ],
@@ -911,7 +911,7 @@ class _AdvancedSensorsScreenState extends State<AdvancedSensorsScreen>
                     child: Container(
                       height: height.clamp(10, 100),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
+                        gradient: const LinearGradient(
                           begin: Alignment.bottomCenter,
                           end: Alignment.topCenter,
                           colors: [
@@ -1096,11 +1096,11 @@ class _AdvancedSensorsScreenState extends State<AdvancedSensorsScreen>
           color: AppTheme.success.withOpacity(0.1),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Row(
+        child: const Row(
           children: [
             Icon(Icons.check_circle, color: AppTheme.success, size: 24),
-            const SizedBox(width: 12),
-            const Text(
+            SizedBox(width: 12),
+            Text(
               'No hay alertas activas',
               style: TextStyle(
                 fontWeight: FontWeight.w600,

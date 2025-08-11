@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 
 // Importaciones locales
 import 'package:rastreo_app/l10n/app_localizations.dart' as l10n;
@@ -25,11 +24,11 @@ import 'widgets/advanced_settings_screen.dart';
 import 'widgets/modern_shipments_screen.dart';
 import 'widgets/advanced_sensors_screen.dart';
 import 'widgets/advanced_history_screen.dart';
-import 'widgets/home_page_content.dart'; // Importación corregida
+import 'widgets/home_page_content.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Configurar orientación preferida
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
@@ -513,7 +512,7 @@ class SensorDetailsScreen extends StatelessWidget {
                             color: AppTheme.success.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Icon(
+                          child: const Icon(
                             Icons.sensors,
                             color: AppTheme.success,
                             size: 32,
@@ -524,7 +523,7 @@ class SensorDetailsScreen extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
+                              const Text(
                                 'Conectado',
                                 style: TextStyle(
                                   fontSize: 18,
@@ -839,10 +838,10 @@ final List<Widget> _pages = [
 ];
 
 final List<BottomNavigationBarItem> _items = [
-  BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
-  BottomNavigationBarItem(icon: Icon(Icons.local_shipping), label: 'Envíos'),
-  BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Historial'),
-  BottomNavigationBarItem(icon: Icon(Icons.sensors), label: 'Sensores'),
-  BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Configuración'),
-  BottomNavigationBarItem(icon: Icon(Icons.qr_code_scanner), label: 'QR Scanner'),
+  const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Inicio'),
+  const BottomNavigationBarItem(icon: Icon(Icons.local_shipping), label: 'Envíos'),
+  const BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Historial'),
+  const BottomNavigationBarItem(icon: Icon(Icons.sensors), label: 'Sensores'),
+  const BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Configuración'),
+  const BottomNavigationBarItem(icon: Icon(Icons.qr_code_scanner), label: 'QR Scanner'),
 ];
