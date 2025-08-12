@@ -34,11 +34,13 @@ dependencies:
 
   # Google Maps Flutter
   google_maps_flutter: ^2.2.0
+  change_app_package_name: ^1.5.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   generate: true # Habilita la generación de código para l10n
@@ -47,3 +49,8 @@ flutter:
   # Declaración de assets (imágenes)
   assets:
     - assets/images/
+
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/app_icon.png"

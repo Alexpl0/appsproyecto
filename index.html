@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rastreo App - Funcionalidades Integradas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #151E2D;
+            background: linear-gradient(135deg, #404F68 0%, #283242 100%);
+            min-height: 100vh;
+        }
+
+        .presentation {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .slide {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            margin: 30px 0;
+            box-shadow: 0 15px 35px rgba(21, 30, 45, 0.2);
+            animation: slideIn 0.6s ease-out;
+            border: 1px solid #C5C9D0;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .slide h1 {
+            color: #151E2D;
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            text-align: center;
+            border-bottom: 3px solid #404F68;
+            padding-bottom: 15px;
+        }
+
+        .slide h2 {
+            color: #404F68;
+            font-size: 2em;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .slide h3 {
+            color: #283242;
+            font-size: 1.5em;
+            margin: 25px 0 15px 0;
+            border-left: 4px solid #404F68;
+            padding-left: 15px;
+        }
+
+        .highlight {
+            background: linear-gradient(120deg, #C5C9D0 0%, #f8f9fa 100%);
+            padding: 25px;
+            border-radius: 12px;
+            margin: 20px 0;
+            border-left: 5px solid #404F68;
+            box-shadow: 0 4px 15px rgba(64, 79, 104, 0.1);
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin: 30px 0;
+        }
+
+        .feature-card {
+            background: linear-gradient(145deg, #f8f9fa 0%, #C5C9D0 100%);
+            padding: 25px;
+            border-radius: 12px;
+            border: 2px solid #C5C9D0;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(21, 30, 45, 0.1);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(21, 30, 45, 0.15);
+            border-color: #404F68;
+        }
+
+        .feature-icon {
+            font-size: 3em;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .code-block {
+            background: linear-gradient(145deg, #151E2D 0%, #283242 100%);
+            color: #C5C9D0;
+            padding: 25px;
+            border-radius: 12px;
+            margin: 20px 0;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.9em;
+            overflow-x: auto;
+            border: 1px solid #404F68;
+            box-shadow: 0 4px 15px rgba(21, 30, 45, 0.2);
+            position: relative;
+        }
+
+        .code-block::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #404F68 0%, #505A71 100%);
+            border-radius: 12px 12px 0 0;
+        }
+
+        .code-block .comment {
+            color: #505A71;
+            font-style: italic;
+        }
+
+        .code-block .keyword {
+            color: #C5C9D0;
+            font-weight: bold;
+        }
+
+        .structure-tree {
+            background: linear-gradient(145deg, #f8f9fa 0%, #C5C9D0 100%);
+            padding: 25px;
+            border-radius: 12px;
+            margin: 20px 0;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.9em;
+            border: 2px solid #404F68;
+            box-shadow: 0 4px 15px rgba(21, 30, 45, 0.1);
+        }
+
+        .structure-tree .folder {
+            color: #404F68;
+            font-weight: bold;
+        }
+
+        .structure-tree .file {
+            color: #283242;
+        }
+
+        .structure-tree .icon {
+            color: #505A71;
+            margin-right: 8px;
+        }
+
+        .badge {
+            display: inline-block;
+            background: #404F68;
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            margin: 5px;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(64, 79, 104, 0.3);
+        }
+
+        .success {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+        }
+
+        .warning {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+
+        .info {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        }
+
+        ul {
+            margin-left: 20px;
+            margin-bottom: 20px;
+        }
+
+        li {
+            margin-bottom: 10px;
+            padding-left: 10px;
+            color: #283242;
+        }
+
+        .center {
+            text-align: center;
+        }
+
+        .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin: 25px 0;
+        }
+
+        .tech-item {
+            background: linear-gradient(135deg, #404F68 0%, #283242 100%);
+            color: white;
+            padding: 12px 18px;
+            border-radius: 25px;
+            font-size: 0.9em;
+            font-weight: 500;
+            box-shadow: 0 4px 15px rgba(64, 79, 104, 0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .tech-item:hover {
+            transform: translateY(-2px);
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #404F68 0%, #283242 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 6px 20px rgba(64, 79, 104, 0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-3px);
+        }
+
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .evidence {
+            background: linear-gradient(145deg, #f0f9ff 0%, #e0f2fe 100%);
+            border: 2px solid #3b82f6;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.1);
+        }
+
+        .challenge {
+            background: linear-gradient(145deg, #fef2f2 0%, #fee2e2 100%);
+            border: 2px solid #ef4444;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.1);
+        }
+
+        .solution {
+            background: linear-gradient(145deg, #f0fdf4 0%, #dcfce7 100%);
+            border: 2px solid #22c55e;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.1);
+        }
+
+        .file-structure {
+            background: linear-gradient(145deg, #f8f9fa 0%, #e9ecef 100%);
+            border: 2px solid #404F68;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            box-shadow: 0 4px 15px rgba(21, 30, 45, 0.1);
+        }
+
+        .file-structure .tree-line {
+            display: block;
+            margin: 8px 0;
+            color: #283242;
+        }
+
+        .file-structure .indent-1 { margin-left: 20px; }
+        .file-structure .indent-2 { margin-left: 40px; }
+        .file-structure .indent-3 { margin-left: 60px; }
+
+        .api-showcase {
+            background: linear-gradient(145deg, #404F68 0%, #283242 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin: 20px 0;
+            box-shadow: 0 6px 20px rgba(21, 30, 45, 0.3);
+        }
+
+        .api-showcase h3 {
+            color: #C5C9D0;
+            border-left: 4px solid #C5C9D0;
+        }
+    </style>
+</head>
+<body>
+    <div class="presentation">
+        <!-- Slide 1: Título -->
+        <div class="slide">
+            <h1>🚚 Rastreo App</h1>
+            <div class="center">
+                <h2>Funcionalidades Integradas - Parcial Final</h2>
+                <div class="highlight">
+                    <p style="font-size: 1.2em; text-align: center; color: #151E2D;">
+                        <strong>Aplicación Flutter de Rastreo de Envíos</strong><br>
+                        Con integración de API, Testing Automatizado y Publicación
+                    </p>
+                </div>
+                <div class="tech-stack">
+                    <div class="tech-item">Flutter</div>
+                    <div class="tech-item">Google Maps API</div>
+                    <div class="tech-item">Widget Testing</div>
+                    <div class="tech-item">Google Play</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 2: Resumen de Funcionalidades -->
+        <div class="slide">
+            <h2>📋 Funcionalidades Implementadas</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🌐</div>
+                    <h3>1. Consumo de API</h3>
+                    <p><strong>Google Directions API</strong></p>
+                    <ul>
+                        <li>Cálculo de rutas dinámicas</li>
+                        <li>Manejo de estados de carga</li>
+                        <li>Gestión de errores</li>
+                        <li>Modo offline simulado</li>
+                    </ul>
+                    <span class="badge success">✓ Implementado</span>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🧪</div>
+                    <h3>2. Testing Automatizado</h3>
+                    <p><strong>Suite Completa sin Mockito</strong></p>
+                    <ul>
+                        <li>Widget testing con localización</li>
+                        <li>Provider testing (AppStateProvider)</li>
+                        <li>Service testing (PreferencesService)</li>
+                        <li>UI interaction testing</li>
+                        <li>Helper TestApp personalizado</li>
+                    </ul>
+                    <span class="badge success">✓ Implementado</span>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📱</div>
+                    <h3>3. Publicación Play Store</h3>
+                    <p><strong>Preparación para Producción</strong></p>
+                    <ul>
+                        <li>Icono personalizado</li>
+                        <li>Versionado y firma</li>
+                        <li>Configuración de build</li>
+                        <li>APK optimizado</li>
+                    </ul>
+                    <span class="badge success">✓ Listo</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 3: Detalles Técnicos API -->
+        <div class="slide">
+            <h2>🌐 Consumo de API - Google Directions</h2>
+            
+            <div class="highlight">
+                <h3>Archivos Principales</h3>
+                <div class="code-block">
+<span class="comment">// Estructura de archivos para integración de API</span>
+<span class="folder">lib/services/</span>
+    └── directions_service.dart          <span class="comment"># Servicio principal de API</span>
+<span class="folder">lib/widgets/</span>
+    └── interactive_map_widget.dart      <span class="comment"># Integración con UI</span>
+<span class="file">.env</span>                                 <span class="comment"># Configuración segura de credenciales</span>
+                </div>
+            </div>
+
+            <div class="api-showcase">
+                <h3>🔧 Implementación Técnica</h3>
+                <div class="code-block">
+<span class="keyword">class</span> DirectionsService {
+  <span class="keyword">static final String</span> _apiKey = dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '';
+  
+  <span class="keyword">Future&lt;RouteInfo&gt;</span> getRoute({
+    <span class="keyword">required double</span> originLat,
+    <span class="keyword">required double</span> originLng,
+    <span class="keyword">required double</span> destLat,
+    <span class="keyword">required double</span> destLng,
+  }) async {
+    <span class="comment">// ✅ Manejo completo de errores de red</span>
+    <span class="comment">// ✅ Estados de carga para mejor UX</span>
+    <span class="comment">// ✅ Decodificación de polylines de Google</span>
+    <span class="comment">// ✅ Fallback para modo offline</span>
+  }
+}
+                </div>
+            </div>
+
+            
+        </div>
+
+        <!-- Slide 4: Testing -->
+        <div class="slide">
+            <h2>🧪 Testing Automatizado</h2>
+            
+            <div class="feature-grid">
+                <div class="evidence">
+                    <h3>✅ Suite Completa de Pruebas</h3>
+                    <ul>
+                        <li><strong>Widget Testing</strong>: LoginScreen, ModernShipmentsScreen</li>
+                        <li><strong>Provider Testing</strong>: AppStateProvider con localización</li>
+                        <li><strong>Service Testing</strong>: PreferencesService CRUD completo</li>
+                        <li><strong>UI Interaction</strong>: Cambio de idiomas, validación de forms</li>
+                        <li><strong>Test Helpers</strong>: TestApp para configuración completa</li>
+                    </ul>
+                </div>
+
+                <div class="code-block">
+<span class="comment">// Test de LoginScreen con cambio de idioma</span>
+<span class="keyword">testWidgets</span>('cambio de idioma ES -> EN actualiza textos', (<span class="keyword">tester</span>) async {
+  <span class="keyword">await</span> tester.pumpWidget(TestApp(
+    child: const LoginScreen(),
+    preferencesService: prefs,
+    notificationService: notifications,
+  ));
+  
+  <span class="comment">// ✅ Verificar texto inicial en español</span>
+  expect(find.text('Entrar'), findsOneWidget);
+  
+  <span class="comment">// ✅ Cambiar idioma y verificar actualización</span>
+  <span class="keyword">await</span> tester.tap(find.text('EN'));
+  <span class="keyword">await</span> tester.pumpAndSettle();
+  expect(find.text('Login'), findsOneWidget);
+});
+                </div>
+            </div>
+
+            <div class="highlight">
+                <h3>📁 Archivos de Testing</h3>
+                <div class="file-structure">
+                    <span class="tree-line"><span class="folder">test/</span></span>
+                    <span class="tree-line indent-1">├── <span class="file">🧪 login_screen_test.dart</span>           <span class="comment"># UI + Localización</span></span>
+                    <span class="tree-line indent-1">├── <span class="file">🧪 app_state_provider_test.dart</span>     <span class="comment"># Estado de la app</span></span>
+                    <span class="tree-line indent-1">├── <span class="file">🧪 preferences_service_test.dart</span>    <span class="comment"># Persistencia</span></span>
+                    <span class="tree-line indent-1">├── <span class="file">🧪 shipments_test.dart</span>             <span class="comment"># Lista de envíos</span></span>
+                    <span class="tree-line indent-1">└── <span class="folder">helpers/</span></span>
+                    <span class="tree-line indent-2">    └── <span class="file">test_app.dart</span>                  <span class="comment"># Helper completo</span></span>
+                </div>
+            </div>
+
+            <div class="stats">
+                <div class="stat-card">
+                    <span class="stat-number">4+</span>
+                    <span>Test Suites</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number">12+</span>
+                    <span>Test Cases</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-number">0</span>
+                    <span>Mockito Usage</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 5: Publicación -->
+        <div class="slide">
+            <h2>📱 Publicación Google Play</h2>
+            
+            <div class="feature-grid">
+                <div class="evidence">
+                    <h3>🚀 Configuración de Build</h3>
+                    <div class="code-block">
+<span class="comment"># pubspec.yaml - Configuración de versión</span>
+<span class="keyword">version:</span> 1.0.0+1
+
+<span class="comment"># Configuración de iconos</span>
+<span class="keyword">flutter_icons:</span>
+  android: true
+  image_path: "assets/images/app_icon.png"
+
+<span class="comment"># android/app/build.gradle</span>
+<span class="keyword">applicationId</span> "com.rastreoapp.tracking"
+<span class="keyword">versionCode</span> 1
+<span class="keyword">versionName</span> "1.0.0"
+                    </div>
+                </div>
+
+                <div class="evidence">
+                    <h3>🔐 Firma y Seguridad</h3>
+                    <ul>
+                        <li><strong>Keystore</strong>: Configurado para release</li>
+                        <li><strong>Permisos</strong>: Solo los necesarios</li>
+                        <li><strong>APK Size</strong>: Optimizado</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="highlight">
+                <h3>📦 Archivos de Publicación</h3>
+                <div class="file-structure">
+                    <span class="tree-line"><span class="folder">android/</span></span>
+                    <span class="tree-line indent-1">├── <span class="file">app/build.gradle</span>              <span class="comment"># ✅ Configurado</span></span>
+                    <span class="tree-line indent-1">├── <span class="file">key.properties</span>               <span class="comment"># ✅ Firma configurada</span></span>
+                    <span class="tree-line indent-1">└── <span class="file">src/main/AndroidManifest.xml</span> <span class="comment"># ✅ Permisos definidos</span></span>
+                    <span class="tree-line"></span>
+                    <span class="tree-line"><span class="folder">build/app/outputs/flutter-apk/</span></span>
+                    <span class="tree-line indent-1">└── <span class="file">app-release.apk</span>              <span class="comment"># ✅ APK listo para distribución</span></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 6: Retos y Soluciones -->
+        <div class="slide">
+            <h2>💡 Retos Técnicos y Soluciones</h2>
+            
+            <div class="challenge">
+                <h3>🚨 Reto: Seguridad de API Key</h3>
+                <p><strong>Problema:</strong> No exponer credenciales en el código fuente</p>
+            </div>
+            <div class="solution">
+                <h3>✅ Solución: Variables de Entorno</h3>
+                <ul>
+                    <li>Implementación de <code>flutter_dotenv</code></li>
+                    <li>Archivo <code>.env</code> ignorado en Git</li>
+                    <li>Configuración segura en producción</li>
+                </ul>
+            </div>
+
+            <div class="challenge">
+                <h3>🚨 Reto: Testing con Localización</h3>
+                <p><strong>Problema:</strong> Widgets requieren AppLocalizations configurado</p>
+            </div>
+            <div class="solution">
+                <h3>✅ Solución: Setup Completo en Tests</h3>
+                <ul>
+                    <li>Configuración de localizationsDelegates</li>
+                    <li>MaterialApp wrapper en cada test</li>
+                    <li>Soporte completo para i18n</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Slide 7: Estructura del Proyecto -->
+        <div class="slide">
+            <h2>📁 Estructura del Proyecto</h2>
+            
+            <div class="file-structure">
+                <h3 style="margin-bottom: 20px; color: #404F68;">📂 Organización de Archivos</h3>
+                
+                <span class="tree-line"><span class="folder">lib/</span></span>
+                <span class="tree-line indent-1">├── <span class="folder">🌐 services/</span></span>
+                <span class="tree-line indent-2">│   └── <span class="file">directions_service.dart</span>        <span class="comment"># API Google Directions</span></span>
+                <span class="tree-line indent-1">├── <span class="folder">📱 screens/</span></span>
+                <span class="tree-line indent-2">│   ├── <span class="folder">login/</span></span>
+                <span class="tree-line indent-3">│   │   └── <span class="file">login_screen.dart</span></span>
+                <span class="tree-line indent-2">│   └── <span class="folder">home/</span></span>
+                <span class="tree-line indent-3">│       └── <span class="file">home_screen.dart</span></span>
+                <span class="tree-line indent-1">├── <span class="folder">🧩 widgets/</span></span>
+                <span class="tree-line indent-2">│   ├── <span class="file">modern_shipments_screen.dart</span>   <span class="comment"># Lista de envíos</span></span>
+                <span class="tree-line indent-2">│   ├── <span class="file">interactive_map_widget.dart</span>    <span class="comment"># Mapa con rutas</span></span>
+                <span class="tree-line indent-2">│   └── <span class="file">...otros widgets</span></span>
+                <span class="tree-line indent-1">├── <span class="folder">🎨 theme/</span></span>
+                <span class="tree-line indent-2">│   └── <span class="file">app_theme.dart</span></span>
+                <span class="tree-line indent-1">├── <span class="folder">🌍 l10n/</span></span>
+                <span class="tree-line indent-2">│   └── <span class="file">app_localizations.dart</span></span>
+                <span class="tree-line indent-1">└── <span class="file">📋 main.dart</span>                       <span class="comment"># Configuración principal</span></span>
+                <span class="tree-line"></span>
+                <span class="tree-line"><span class="folder">test/</span></span>
+                <span class="tree-line indent-1">├── <span class="file">🧪 widget_test.dart</span>               <span class="comment"># Tests principales</span></span>
+                <span class="tree-line indent-1">├── <span class="file">🧪 shipments_test.dart</span>           <span class="comment"># Tests de envíos</span></span>
+                <span class="tree-line indent-1">└── <span class="folder">🧪 integration_test/</span>             <span class="comment"># Tests de integración</span></span>
+            </div>
+
+        </div>
+
+        <!-- Slide 8: Resultados -->
+        <div class="slide">
+            <h2>🎯 Resultados y Evidencias</h2>
+            
+            <div class="feature-grid">
+                <div class="evidence">
+                    <h3>✅ API Integration</h3>
+                    <ul>
+                        <li>Google Directions API funcional</li>
+                        <li>Rutas dinámicas en mapa</li>
+                        <li>Estados de carga implementados</li>
+                        <li>Manejo robusto de errores</li>
+                    </ul>
+                    <span class="badge success">Completo</span>
+                </div>
+
+                <div class="evidence">
+                    <h3>✅ Testing Suite</h3>
+                    <ul>
+                        <li>Tests de UI con localización completa</li>
+                        <li>Testing de Providers y servicios</li>
+                        <li>Validación de preferencias CRUD</li>
+                        <li>Testing de interacciones complejas</li>
+                        <li>Helper TestApp para setup consistente</li>
+                    </ul>
+                    <span class="badge success">Completo</span>
+                </div>
+
+                <div class="evidence">
+                    <h3>✅ Play Store Ready</h3>
+                    <ul>
+                        <li>APK firmado y optimizado</li>
+                        <li>Icono personalizado</li>
+                        <li>Configuración de producción</li>
+                        <li>Listo para distribución</li>
+                    </ul>
+                    <span class="badge success">Completo</span>
+                </div>
+            </div>
+
+            <div class="highlight center">
+                <h3>🚀 Aplicación Lista para Producción</h3>
+                <p style="color: #151E2D;">Todas las funcionalidades del parcial final implementadas exitosamente</p>
+                <div class="tech-stack">
+                    <div class="tech-item">API ✓</div>
+                    <div class="tech-item">Testing ✓</div>
+                    <div class="tech-item">Publicación ✓</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
